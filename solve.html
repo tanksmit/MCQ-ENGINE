@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Solve and validate MCQs with AI-powered analysis and get correct answers with explanations">
+    <title>Solve MCQs - MCQ Generator & Solver</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">MCQ Engine</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="generate.html">Generate MCQ</a></li>
+                <li><a href="solve.html" class="active">Solve MCQ</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="glass-card" style="max-width: 900px; margin: 0 auto;">
+                <div class="glass-card-header">
+                    <h1 class="glass-card-title">🎯 Solve MCQs</h1>
+
+                </div>
+
+                <form id="solveForm">
+                    <!-- MCQ Input -->
+                    <div class="form-group">
+                        <label for="mcqInput" class="form-label">
+                            Paste Your MCQs
+                            <span style="color: var(--text-muted); font-weight: 400;">(Solved, unsolved, or
+                                incorrect)</span>
+                        </label>
+                        <textarea id="mcqInput" class="form-textarea" placeholder="Paste your MCQ questions here. You can paste solved or unsolved questions.
+
+Example format:
+
+Q1. What is the powerhouse of the cell?
+A. Nucleus
+B. Mitochondria
+C. Ribosome
+D. Golgi apparatus
+
+Q2. Which planet is known as the Red Planet?
+A. Venus
+B. Mars
+C. Jupiter
+D. Saturn
+
+The AI will analyze and provide correct answers with explanations." maxlength="100000"></textarea>
+                        <div class="char-counter">
+                            <span id="charCount">0</span> / 100,000 characters
+                        </div>
+                    </div>
+
+                    <!-- File Upload Input -->
+                    <div class="form-group">
+                        <label for="fileUpload" class="form-label">
+                            Or Upload a File
+                            <span style="color: var(--text-muted); font-weight: 400;">(PDF, PPTX, PNG, JPG, JPEG)</span>
+                        </label>
+                        <div class="file-upload-container" id="dropZone">
+                            <input type="file" id="fileUpload" class="file-input" accept=".pdf,.pptx,.png,.jpg,.jpeg">
+                            <div class="file-upload-content">
+                                <span class="file-upload-icon">📁</span>
+                                <p>Drag & drop or <span
+                                        style="text-decoration: underline; cursor: pointer;">browse</span></p>
+                                <p class="file-info" id="fileInfo">No file selected</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Explanation Toggle -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            Include Explanations
+                        </label>
+                        <div class="toggle-container">
+                            <div class="toggle-switch active" id="explanationToggle">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <span id="explanationLabel" style="color: var(--text-secondary);">
+                                Explanations enabled
+                            </span>
+                        </div>
+                        <div class="char-counter">
+                            Get detailed explanations for each answer
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="form-group" style="margin-top: var(--spacing-xl);">
+                        <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
+                            <span>🔍</span>
+                            Solve MCQs
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text">Solving MCQs...</p>
+        <p style="color: var(--text-muted); margin-top: var(--spacing-sm);">
+            Analyzing questions and finding correct answers
+        </p>
+    </div>
+
+    <!-- Result Modal -->
+    <div class="modal-overlay" id="resultModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Solved MCQs</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="mcqPreview" class="mcq-preview"></div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                <button class="btn btn-primary" id="downloadPdf">
+                    <span>📄</span>
+                    Download PDF
+                </button>
+                <button class="btn btn-secondary" id="solveAnother">
+                    <span>🔄</span>
+                    Solve Another
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="mobile-nav-show">
+        <a href="index.html">🏠<br>Home</a>
+        <a href="generate.html">✨<br>Gen</a>
+        <a href="solve.html" class="active">🎯<br>Solve</a>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Page-specific JavaScript
+        const mcqInput = document.getElementById('mcqInput');
+        const charCount = document.getElementById('charCount');
+        const explanationToggle = document.getElementById('explanationToggle');
+        const explanationLabel = document.getElementById('explanationLabel');
+        const solveForm = document.getElementById('solveForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const resultModal = document.getElementById('resultModal');
+        const closeModal = document.getElementById('closeModal');
+        const mcqPreview = document.getElementById('mcqPreview');
+        const downloadPdf = document.getElementById('downloadPdf');
+        const solveAnother = document.getElementById('solveAnother');
+        const fileUpload = document.getElementById('fileUpload');
+        const dropZone = document.getElementById('dropZone');
+        const fileInfo = document.getElementById('fileInfo');
+
+        let solvedData = null;
+
+        // File selection handling
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileInfo.textContent = `Selected: ${file.name}`;
+                mcqInput.required = false;
+            } else {
+                fileInfo.textContent = 'No file selected';
+                mcqInput.required = true;
+            }
+        });
+
+        // Drag and drop handling
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileUpload.files = files;
+                fileInfo.textContent = `Selected: ${files[0].name}`;
+                mcqInput.required = false;
+            }
+        });
+
+        // Character counter
+        mcqInput.addEventListener('input', () => {
+            charCount.textContent = mcqInput.value.length;
+        });
+
+        // Toggle switch
+        explanationToggle.addEventListener('click', () => {
+            explanationToggle.classList.toggle('active');
+            const isActive = explanationToggle.classList.contains('active');
+            explanationLabel.textContent = isActive ? 'Explanations enabled' : 'Explanations disabled';
+        });
+
+        // Form submission
+        solveForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('mcqText', mcqInput.value.trim());
+            formData.append('includeExplanation', explanationToggle.classList.contains('active'));
+
+            const file = fileUpload.files[0];
+            if (file) {
+                formData.append('file', file);
+            }
+
+            // Removed strict length validation for consistency
+            if (!file && mcqInput.value.trim().length === 0) {
+                showError('Please provide MCQ questions or upload a file.');
+                return;
+            }
+
+            // Show loading
+            const loadingText = document.querySelector('.loading-text');
+            loadingOverlay.classList.add('active');
+            resultModal.classList.add('active');
+            mcqPreview.innerHTML = '<div style="text-align:center; padding: 20px;">Starting to solve...</div>';
+
+            loadingText.textContent = 'Solving your questions...';
+
+            downloadPdf.disabled = true;
+            solveAnother.disabled = true;
+            downloadPdf.style.opacity = '0.5';
+            solveAnother.style.opacity = '0.5';
+
+            try {
+                const response = await fetch('/api/solve-mcq', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                loadingOverlay.classList.remove('active');
+                mcqPreview.innerHTML = '';
+
+                solvedData = {
+                    mcqs: [],
+                    includeExplanation: explanationToggle.classList.contains('active')
+                };
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const parts = buffer.split('\n--CHUNK--\n');
+                    buffer = parts.pop();
+
+                    for (const part of parts) {
+                        if (!part.trim()) continue;
+                        try {
+                            const data = JSON.parse(part);
+
+                            if (data.completed) {
+                                downloadPdf.disabled = false;
+                                solveAnother.disabled = false;
+                                downloadPdf.style.opacity = '1';
+                                solveAnother.style.opacity = '1';
+                                showSuccess('MCQs solved successfully! ✅');
+                            } else if (data.mcqs && Array.isArray(data.mcqs)) {
+                                const startIndex = solvedData.mcqs.length;
+                                solvedData.mcqs.push(...data.mcqs);
+                                appendMCQs(data.mcqs, solvedData.includeExplanation, startIndex);
+                            }
+                        } catch (err) {
+                            console.error("Error parsing chunk:", err, part);
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                loadingOverlay.classList.remove('active');
+                showError('Failed to solve MCQs: ' + error.message);
+                downloadPdf.disabled = false;
+                solveAnother.disabled = false;
+                downloadPdf.style.opacity = '1';
+                solveAnother.style.opacity = '1';
+            }
+        });
+
+        function appendMCQs(mcqs, showExplanation, startIndex) {
+            const html = mcqs.map((mcq, index) => `
+                <div class="mcq-item fade-in">
+                    <div class="mcq-question">Q${startIndex + index + 1}. ${mcq.question}</div>
+                    <div class="mcq-options">
+                        <div class="mcq-option">A. ${mcq.options.A}</div>
+                        <div class="mcq-option">B. ${mcq.options.B}</div>
+                        <div class="mcq-option">C. ${mcq.options.C}</div>
+                        <div class="mcq-option">D. ${mcq.options.D}</div>
+                    </div>
+                    <div class="mcq-answer">Final Correct Answer: ${mcq.correctAnswer}</div>
+                    ${showExplanation && mcq.explanation ? `
+                        <div class="mcq-explanation">
+                            <strong>Explanation:</strong> ${mcq.explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            // Create a temp container to append
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            while (temp.firstChild) {
+                mcqPreview.appendChild(temp.firstChild);
+            }
+        }
+
+        // Display MCQs
+        function displayMCQs(mcqs, showExplanation) {
+            mcqPreview.innerHTML = mcqs.map((mcq, index) => `
+                <div class="mcq-item">
+                    <div class="mcq-question">Q${index + 1}. ${mcq.question}</div>
+                    <div class="mcq-options">
+                        <div class="mcq-option">A. ${mcq.options.A}</div>
+                        <div class="mcq-option">B. ${mcq.options.B}</div>
+                        <div class="mcq-option">C. ${mcq.options.C}</div>
+                        <div class="mcq-option">D. ${mcq.options.D}</div>
+                    </div>
+                    <div class="mcq-answer">Final Correct Answer: ${mcq.correctAnswer}</div>
+                    ${showExplanation && mcq.explanation ? `
+                        <div class="mcq-explanation">
+                            <strong>Explanation:</strong> ${mcq.explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Download PDF
+        downloadPdf.addEventListener('click', async () => {
+            if (!solvedData) return;
+
+            try {
+                const response = await fetch('/api/download-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(solvedData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Server error' }));
+                    throw new Error(errorData.error || 'Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Solved_MCQs_${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to download PDF: ' + error.message);
+            }
+        });
+
+        // Close modal
+        closeModal.addEventListener('click', () => {
+            resultModal.classList.remove('active');
+        });
+
+        // Solve another
+        solveAnother.addEventListener('click', () => {
+            resultModal.classList.remove('active');
+            solveForm.reset();
+            charCount.textContent = '0';
+            fileInfo.textContent = 'No file selected';
+            mcqInput.required = true;
+            explanationToggle.classList.add('active');
+            explanationLabel.textContent = 'Explanations enabled';
+        });
+
+        // Close modal on outside click
+        resultModal.addEventListener('click', (e) => {
+            if (e.target === resultModal) {
+                resultModal.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+
+</html>

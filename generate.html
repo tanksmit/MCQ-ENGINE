@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Generate AI-powered MCQs from your study material with customizable difficulty and explanations">
+    <title>Generate MCQs - MCQ Generator & Solver</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">MCQ Engine</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="generate.html" class="active">Generate MCQ</a></li>
+                <li><a href="solve.html">Solve MCQ</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="glass-card" style="max-width: 900px; margin: 0 auto;">
+                <div class="glass-card-header">
+                    <h1 class="glass-card-title">✨ Generate MCQs</h1>
+
+                </div>
+
+                <form id="generateForm">
+                    <!-- Study Material Input -->
+                    <div class="form-group">
+                        <label for="studyMaterial" class="form-label">
+                            Study Material
+                            <span style="color: var(--text-muted); font-weight: 400;">(Paste your content here)</span>
+                        </label>
+                        <textarea id="studyMaterial" class="form-textarea"
+                            placeholder="Paste your study material, notes, or any educational content here. The AI will analyze this content and generate relevant MCQs based on it.
+
+Example:
+Photosynthesis is the process by which plants use sunlight, water, and carbon dioxide to create oxygen and energy in the form of sugar..."
+                            maxlength="100000"></textarea>
+                        <div class="char-counter">
+                            <span id="charCount">0</span> / 100,000 characters
+                        </div>
+                    </div>
+
+                    <!-- File Upload Input -->
+                    <div class="form-group">
+                        <label for="fileUpload" class="form-label">
+                            Or Upload a File
+                            <span style="color: var(--text-muted); font-weight: 400;">(PDF, PPTX, PNG, JPG, JPEG)</span>
+                        </label>
+                        <div class="file-upload-container" id="dropZone">
+                            <input type="file" id="fileUpload" class="file-input" accept=".pdf,.pptx,.png,.jpg,.jpeg">
+                            <div class="file-upload-content">
+                                <span class="file-upload-icon">📁</span>
+                                <p>Drag & drop or <span
+                                        style="text-decoration: underline; cursor: pointer;">browse</span></p>
+                                <p class="file-info" id="fileInfo">No file selected</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Granular MCQ Difficulty Counts -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--spacing-md);">
+                        <div class="form-group">
+                            <label for="easyCount" class="form-label">😊 Easy</label>
+                            <input type="number" id="easyCount" class="form-input" min="0" max="1000" value="2">
+                        </div>
+                        <div class="form-group">
+                            <label for="mediumCount" class="form-label">🤔 Medium</label>
+                            <input type="number" id="mediumCount" class="form-input" min="0" max="1000" value="2">
+                        </div>
+                        <div class="form-group">
+                            <label for="hardCount" class="form-label">🤯 Hard</label>
+                            <input type="number" id="hardCount" class="form-input" min="0" max="1000" value="1">
+                        </div>
+                    </div>
+                    <div class="char-counter" style="margin-bottom: var(--spacing-md);">
+                        The AI will generate the specified number of questions for each level.
+                    </div>
+
+                    <!-- Explanation Toggle -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            Include Explanations
+                        </label>
+                        <div class="toggle-container">
+                            <div class="toggle-switch active" id="explanationToggle">
+                                <div class="toggle-slider"></div>
+                            </div>
+                            <span id="explanationLabel" style="color: var(--text-secondary);">
+                                Explanations enabled
+                            </span>
+                        </div>
+                        <div class="char-counter">
+                            Explanations help understand why an answer is correct
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="form-group" style="margin-top: var(--spacing-xl);">
+                        <button type="submit" class="btn btn-primary btn-large" style="width: 100%;">
+                            <span>🚀</span>
+                            Generate MCQs
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p class="loading-text">Generating MCQs...</p>
+        <p style="color: var(--text-muted); margin-top: var(--spacing-sm);">
+            This may take a few seconds
+        </p>
+    </div>
+
+    <!-- Result Modal -->
+    <div class="modal-overlay" id="resultModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Generated MCQs</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="mcqPreview" class="mcq-preview"></div>
+            </div>
+            <div style="display: flex; gap: var(--spacing-md); flex-wrap: wrap;">
+                <button class="btn btn-primary" id="downloadPdf">
+                    <span>📄</span>
+                    Download PDF
+                </button>
+                <button class="btn btn-secondary" id="generateAnother">
+                    <span>🔄</span>
+                    Generate Another
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <div class="mobile-nav-show">
+        <a href="index.html">🏠<br>Home</a>
+        <a href="generate.html" class="active">✨<br>Gen</a>
+        <a href="solve.html">🎯<br>Solve</a>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Page-specific JavaScript
+        const studyMaterial = document.getElementById('studyMaterial');
+        const charCount = document.getElementById('charCount');
+        const explanationToggle = document.getElementById('explanationToggle');
+        const explanationLabel = document.getElementById('explanationLabel');
+        const generateForm = document.getElementById('generateForm');
+        const mcqPreview = document.getElementById('mcqPreview');
+        const downloadPdf = document.getElementById('downloadPdf');
+        const generateAnother = document.getElementById('generateAnother');
+        const fileUpload = document.getElementById('fileUpload');
+        const dropZone = document.getElementById('dropZone');
+        const fileInfo = document.getElementById('fileInfo');
+
+        let generatedData = null;
+
+        // File selection handling
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileInfo.textContent = `Selected: ${file.name}`;
+                studyMaterial.required = false; // Disable text required if file is present
+            } else {
+                fileInfo.textContent = 'No file selected';
+                studyMaterial.required = true;
+            }
+        });
+
+        // Drag and drop handling
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileUpload.files = files;
+                fileInfo.textContent = `Selected: ${files[0].name}`;
+                studyMaterial.required = false;
+            }
+        });
+
+        // Character counter
+        studyMaterial.addEventListener('input', () => {
+            charCount.textContent = studyMaterial.value.length;
+        });
+
+        // Toggle switch
+        explanationToggle.addEventListener('click', () => {
+            explanationToggle.classList.toggle('active');
+            const isActive = explanationToggle.classList.contains('active');
+            explanationLabel.textContent = isActive ? 'Explanations enabled' : 'Explanations disabled';
+        });
+
+        // Form submission
+        generateForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('studyMaterial', studyMaterial.value.trim());
+            const easyCount = parseInt(document.getElementById('easyCount').value) || 0;
+            const mediumCount = parseInt(document.getElementById('mediumCount').value) || 0;
+            const hardCount = parseInt(document.getElementById('hardCount').value) || 0;
+            const totalCount = easyCount + mediumCount + hardCount;
+
+            formData.append('easyCount', easyCount);
+            formData.append('mediumCount', mediumCount);
+            formData.append('hardCount', hardCount);
+            formData.append('includeExplanation', explanationToggle.classList.contains('active'));
+
+            const file = fileUpload.files[0];
+            if (file) {
+                formData.append('file', file);
+            }
+
+            // Removed strict length validation to allow faster/shorter inputs
+            if (!file && studyMaterial.value.trim().length === 0) {
+                showError('Please provide some study material or upload a file.');
+                return;
+            }
+
+            if (totalCount < 1 || totalCount > 1000) {
+                showError('Please select at least 1 MCQ in total (max 1000).');
+                return;
+            }
+
+            // Show loading
+            const loadingText = document.querySelector('.loading-text');
+            loadingOverlay.classList.add('active');
+            resultModal.classList.add('active');
+            mcqPreview.innerHTML = '<div style="text-align:center; padding: 20px;">Starting generation...</div>';
+
+            loadingText.textContent = 'Generating questions...';
+
+            downloadPdf.disabled = true;
+            generateAnother.disabled = true;
+            downloadPdf.style.opacity = '0.5';
+            generateAnother.style.opacity = '0.5';
+
+            try {
+                const response = await fetch('/api/generate-mcq', {
+                    method: 'POST',
+                    body: formData // No Content-Type header needed for FormData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                loadingOverlay.classList.remove('active');
+                mcqPreview.innerHTML = '';
+
+                generatedData = {
+                    mcqs: [],
+                    difficulty: `Easy: ${easyCount}, Medium: ${mediumCount}, Hard: ${hardCount}`,
+                    includeExplanation: explanationToggle.classList.contains('active')
+                };
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const parts = buffer.split('\n--CHUNK--\n');
+                    buffer = parts.pop();
+
+                    for (const part of parts) {
+                        if (!part.trim()) continue;
+                        try {
+                            const data = JSON.parse(part);
+
+                            if (data.completed) {
+                                downloadPdf.disabled = false;
+                                generateAnother.disabled = false;
+                                downloadPdf.style.opacity = '1';
+                                generateAnother.style.opacity = '1';
+                                showSuccess(`Successfully generated ${totalCount} MCQs! 🎉`);
+                            } else if (data.mcqs && Array.isArray(data.mcqs)) {
+                                const startIndex = generatedData.mcqs.length;
+                                generatedData.mcqs.push(...data.mcqs);
+                                appendMCQs(data.mcqs, generatedData.includeExplanation, startIndex);
+                            }
+                        } catch (err) {
+                            console.error("Error parsing chunk:", err, part);
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                loadingOverlay.classList.remove('active');
+                showError('Failed to generate MCQs: ' + error.message);
+                downloadPdf.disabled = false;
+                generateAnother.disabled = false;
+                downloadPdf.style.opacity = '1';
+                generateAnother.style.opacity = '1';
+            }
+        });
+
+        function appendMCQs(mcqs, showExplanation, startIndex) {
+            const html = mcqs.map((mcq, index) => `
+                <div class="mcq-item fade-in">
+                    <div class="mcq-question">Q${startIndex + index + 1}. ${mcq.question}</div>
+                    <div class="mcq-options">
+                        <div class="mcq-option">A. ${mcq.options.A}</div>
+                        <div class="mcq-option">B. ${mcq.options.B}</div>
+                        <div class="mcq-option">C. ${mcq.options.C}</div>
+                        <div class="mcq-option">D. ${mcq.options.D}</div>
+                    </div>
+                    <div class="mcq-answer">Correct Answer: ${mcq.correctAnswer}</div>
+                    ${showExplanation && mcq.explanation ? `
+                        <div class="mcq-explanation">
+                            <strong>Explanation:</strong> ${mcq.explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            // Create a temp container to append
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+            while (temp.firstChild) {
+                mcqPreview.appendChild(temp.firstChild);
+            }
+        }
+
+        // Display MCQs
+        function displayMCQs(mcqs, showExplanation) {
+            mcqPreview.innerHTML = mcqs.map((mcq, index) => `
+                <div class="mcq-item">
+                    <div class="mcq-question">Q${index + 1}. ${mcq.question}</div>
+                    <div class="mcq-options">
+                        <div class="mcq-option">A. ${mcq.options.A}</div>
+                        <div class="mcq-option">B. ${mcq.options.B}</div>
+                        <div class="mcq-option">C. ${mcq.options.C}</div>
+                        <div class="mcq-option">D. ${mcq.options.D}</div>
+                    </div>
+                    <div class="mcq-answer">Correct Answer: ${mcq.correctAnswer}</div>
+                    ${showExplanation && mcq.explanation ? `
+                        <div class="mcq-explanation">
+                            <strong>Explanation:</strong> ${mcq.explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Download PDF
+        downloadPdf.addEventListener('click', async () => {
+            if (!generatedData) return;
+
+            try {
+                const response = await fetch('/api/download-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(generatedData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate PDF');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `MCQs_${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to download PDF: ' + error.message);
+            }
+        });
+
+        // Close modal
+        closeModal.addEventListener('click', () => {
+            resultModal.classList.remove('active');
+        });
+
+        // Generate another
+        generateAnother.addEventListener('click', () => {
+            resultModal.classList.remove('active');
+            generateForm.reset();
+            charCount.textContent = '0';
+            explanationToggle.classList.add('active');
+            explanationLabel.textContent = 'Explanations enabled';
+        });
+
+        // Close modal on outside click
+        resultModal.addEventListener('click', (e) => {
+            if (e.target === resultModal) {
+                resultModal.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+
+</html>

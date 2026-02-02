@@ -1,0 +1,32 @@
+{
+  "name": "mcq-generator-solver",
+  "version": "1.0.0",
+  "description": "AI-powered MCQ Generator and Solver with PDF export",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
+  },
+  "keywords": [
+    "mcq",
+    "generator",
+    "ai",
+    "education",
+    "pdf"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "express-rate-limit": "^7.5.1",
+    "multer": "^2.0.2",
+    "office-text-extractor": "^4.0.0",
+    "puppeteer": "^21.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
