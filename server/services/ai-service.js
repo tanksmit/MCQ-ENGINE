@@ -27,18 +27,20 @@ CORE PRINCIPLES:
    - Ensure a balanced distribution of topics from the material.
 
 OUTPUT FORMAT:
-Return ONLY a valid JSON array. Be brief. No markdown, no filler.`;
+Return ONLY a valid JSON array of MCQ objects. Each object MUST have: "question", "options" (with A, B, C, D), "correctAnswer" (just the letter), and "explanation".
+Avoid excessive escaping; let the JSON string handles standard characters. For LaTeX, use single backslashes if not using specific JSON mode. No markdown, no filler.`;
 
 // System Instruction for MCQ Solving
-const SOLVING_SYSTEM_INSTRUCTION = `You are an expert academic evaluator. Your task is to solve or validate multiple-choice questions accurately.
+const SOLVING_SYSTEM_INSTRUCTION = `You are an expert academic evaluator. Your task is to solve multiple-choice questions accurately.
 
 CORE PRINCIPLES:
 1. PRECISION: Identify the single most correct answer based on logical reasoning and academic facts.
-2. VALIDATION: If the input already has an answer, check it. If it is wrong, provide the correct one.
-3. EXPLANATION: If requested, provide a clear, logical explanation for why the chosen answer is correct and why others are not.
+2. FULL STRUCTURE: You MUST return the full MCQ object for each question, including the original question text and all options (A, B, C, D), even if only the answer was requested.
+3. EXPLANATION: If requested, provide a clear, logical explanation for why the chosen answer is correct.
 
 OUTPUT FORMAT:
-Return ONLY a valid JSON array. Be brief. No markdown, no filler.`;
+Return ONLY a valid JSON array of MCQ objects. Each object MUST have: "question", "options" (with A, B, C, D), "correctAnswer" (just the letter), and "explanation".
+Be brief. No markdown, no filler.`;
 
 // Examples for "Few-Shot" Prompting
 const FEW_SHOT_EXAMPLES = `
@@ -90,11 +92,11 @@ PROVIDED MATERIAL:
 
 // Master Prompt for MCQ Solving
 function getSolvingPrompt(includeExplanation) {
-    return `TASK: Identify the correct answers for the following MCQs.
+    return `TASK: Identify the correct answers for the following MCQs and return the complete MCQ objects.
 INSTRUCTIONS:
-1. Validate any existing answers; correct them if they are wrong.
-2. Base answers on general academic knowledge and the context provided.
-3. ${includeExplanation ? 'Include detailed explanations.' : 'Do NOT include explanations.'}
+1. For each question provided, determine the correct option.
+2. You MUST return the FULL MCQ structure for every question: question text, all options, the correct answer letter, and an explanation.
+3. ${includeExplanation ? 'Include detailed explanations.' : 'Keep explanations brief.'}
 
 OUTPUT FORMAT: Return ONLY the JSON array matching the structure shown in the examples above.`;
 }
@@ -102,14 +104,13 @@ OUTPUT FORMAT: Return ONLY the JSON array matching the structure shown in the ex
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const MODELS = [
+    'gemini-1.5-flash-latest',
     'gemini-flash-lite-latest',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-2.5-flash',
     'gemini-flash-latest',
-    'gemini-2.5-pro',
-    'gemini-pro-latest',
-    'gemini-1.5-pro-latest'
+    'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-pro-latest',
+    'gemini-2.0-pro-exp'
 ];
 
 /**
@@ -138,6 +139,46 @@ function fileToGenerativePart(buffer, mimeType) {
     };
 }
 
+/**
+ * Sanitizes AI response to ensure valid JSON
+ */
+function cleanJSONResponse(text) {
+    if (!text) return "";
+
+    // 1. Remove markdown code blocks
+    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    // 2. Fix unescaped backslashes (LaTeX, etc.)
+    // We only do this if it's NOT already valid JSON (handles edge cases where AI fails to escape)
+    try {
+        JSON.parse(text);
+        return text; // It's valid, don't mess with it
+    } catch (e) {
+        // Not valid, try to fix backslashes
+        text = text.replace(/\\(?![bfnrtu"\/]|u[0-9a-fA-F]{4})/g, '\\\\');
+    }
+
+    // 3. Handle potential truncated JSON
+    if (!text.endsWith(']') && !text.endsWith('}')) {
+        console.log('Attempting to repair truncated JSON...');
+        // Close string if open
+        const lastQuote = text.lastIndexOf('"');
+        const lastColon = text.lastIndexOf(':');
+        if (lastQuote > lastColon) {
+            text += '"';
+        }
+
+        // Close braces and brackets
+        let openBraces = (text.match(/{/g) || []).length - (text.match(/}/g) || []).length;
+        let openBrackets = (text.match(/\[/g) || []).length - (text.match(/\]/g) || []).length;
+
+        for (let i = 0; i < openBraces; i++) text += '}';
+        for (let i = 0; i < openBrackets; i++) text += ']';
+    }
+
+    return text;
+}
+
 async function generateWithFallback(prompt, fileData = null, systemInstruction = GENERATION_SYSTEM_INSTRUCTION) {
     let lastError = null;
 
@@ -146,7 +187,12 @@ async function generateWithFallback(prompt, fileData = null, systemInstruction =
             console.log(`Attempting to generate with model: ${modelName}`);
             const model = genAI.getGenerativeModel({
                 model: modelName,
-                systemInstruction: systemInstruction
+                systemInstruction: systemInstruction,
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
+                }
             });
 
             // Try up to 3 times per model for transient errors
@@ -244,7 +290,7 @@ async function generateMCQs(studyMaterial, difficultyCounts, includeExplanation,
         const response = await result.response;
         let text = response.text();
 
-        text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        text = cleanJSONResponse(text);
         const mcqs = JSON.parse(text);
 
         // Filter out only completely broken objects
@@ -318,11 +364,25 @@ function normalizeOptions(options) {
 function normalizeMCQ(mcq) {
     if (!mcq || typeof mcq !== 'object') return null;
 
+    // Handle different property names for the answer
+    const answer = (
+        mcq.correctAnswer ||
+        mcq.correct_answer ||
+        mcq.answer ||
+        mcq.Answer ||
+        mcq.correct_option ||
+        mcq.selected_option ||
+        'A'
+    ).toString().trim();
+
+    // Extract just the letter if it's "A) Something" or "A. Something"
+    const answerLetter = answer.match(/^[A-DA-d]/) ? answer[0].toUpperCase() : 'A';
+
     return {
-        question: mcq.question || mcq.Question || 'No question provided',
-        options: normalizeOptions(mcq.options || mcq.Options),
-        correctAnswer: (mcq.correctAnswer || mcq.correct_answer || mcq.answer || mcq.Answer || 'A').toUpperCase(),
-        explanation: mcq.explanation || mcq.Explanation || ''
+        question: mcq.question || mcq.Question || mcq.text || 'No question provided',
+        options: normalizeOptions(mcq.options || mcq.Options || mcq.choices),
+        correctAnswer: answerLetter,
+        explanation: mcq.explanation || mcq.Explanation || mcq.reasoning || ''
     };
 }
 
@@ -350,7 +410,7 @@ async function solveMCQs(mcqText, includeExplanation, file = null) {
 
         console.log('Raw AI response for solving:', text.substring(0, 500));
 
-        text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        text = cleanJSONResponse(text);
 
         let mcqs;
         try {
@@ -363,11 +423,18 @@ async function solveMCQs(mcqText, includeExplanation, file = null) {
 
         if (!Array.isArray(mcqs)) {
             // Try to extract array if wrapped in an object
-            if (mcqs && mcqs.mcqs && Array.isArray(mcqs.mcqs)) {
-                mcqs = mcqs.mcqs;
-            } else if (mcqs && mcqs.questions && Array.isArray(mcqs.questions)) {
-                mcqs = mcqs.questions;
-            } else {
+            if (mcqs && typeof mcqs === 'object') {
+                const possibleArrays = ['mcqs', 'questions', 'answers', 'results'];
+                for (const key of possibleArrays) {
+                    if (Array.isArray(mcqs[key])) {
+                        mcqs = mcqs[key];
+                        break;
+                    }
+                }
+            }
+
+            if (!Array.isArray(mcqs)) {
+                console.error('AI response is not an array and no common keys found:', mcqs);
                 throw new Error('Invalid response format: expected array of MCQs');
             }
         }
