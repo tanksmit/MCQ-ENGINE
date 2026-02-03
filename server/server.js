@@ -121,8 +121,10 @@ const startServer = (port) => {
     process.on('SIGINT', shutdown);
 };
 
-// Start the server
-startServer(PORT);
+// Start the server if running directly (Local)
+if (require.main === module) {
+    startServer(PORT);
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
@@ -134,3 +136,6 @@ process.on('SIGINT', () => {
     console.log('\n🛑 SIGINT signal received: closing HTTP server');
     process.exit(0);
 });
+
+// Export the app for Vercel
+module.exports = app;
