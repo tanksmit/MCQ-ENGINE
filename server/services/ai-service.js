@@ -155,7 +155,82 @@ function cleanJSONResponse(text) {
         return text; // It's valid, don't mess with it
     } catch (e) {
         // Not valid, try to fix backslashes
-        text = text.replace(/\\(?![bfnrtu"\/]|u[0-9a-fA-F]{4})/g, '\\\\');
+        // Process string content (inside quotes) to escape invalid backslashes
+        // Strategy: Find string values and fix backslashes within them
+        let result = '';
+        let i = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        while (i < text.length) {
+            const char = text[i];
+            
+            if (escapeNext) {
+                result += char;
+                escapeNext = false;
+                i++;
+                continue;
+            }
+            
+            if (char === '"' && (i === 0 || text[i - 1] !== '\\' || (i > 1 && text[i - 2] === '\\'))) {
+                // Toggle string state (handle escaped quotes properly)
+                inString = !inString;
+                result += char;
+                i++;
+                continue;
+            }
+            
+            if (inString && char === '\\') {
+                // We're in a string and found a backslash
+                const nextChar = i + 1 < text.length ? text[i + 1] : '';
+                
+                // Check if it's a valid escape sequence
+                if (/[bfnrtu"\/\\]/.test(nextChar)) {
+                    if (nextChar === 'u') {
+                        // Check for \uXXXX pattern
+                        if (i + 5 < text.length && /^[0-9a-fA-F]{4}$/.test(text.substring(i + 2, i + 6))) {
+                            result += text.substring(i, i + 6);
+                            i += 6;
+                            continue;
+                        } else {
+                            // Invalid \u sequence, escape the backslash
+                            result += '\\\\';
+                            i++;
+                            continue;
+                        }
+                    } else if (nextChar === '\\') {
+                        // Handle \\ (escaped backslash)
+                        // Check if we have \\\ (three backslashes)
+                        if (i + 2 < text.length && text[i + 2] === '\\') {
+                            // We have \\\ - escape the third one
+                            result += '\\\\';
+                            i += 2; // Skip the first two backslashes
+                            continue;
+                        } else {
+                            // Valid \\ sequence
+                            result += '\\\\';
+                            i += 2;
+                            continue;
+                        }
+                    } else {
+                        // Valid escape sequence (\b, \f, \n, \r, \t, \", \/)
+                        result += char + nextChar;
+                        i += 2;
+                        continue;
+                    }
+                } else {
+                    // Invalid escape sequence, escape the backslash
+                    result += '\\\\';
+                    i++;
+                    continue;
+                }
+            }
+            
+            result += char;
+            i++;
+        }
+        
+        text = result;
     }
 
     // 3. Handle potential truncated JSON
