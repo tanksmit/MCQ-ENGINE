@@ -1,7 +1,16 @@
 // PDF Service - Generate PDFs using Puppeteer
 // Creates professionally formatted PDF documents from MCQ data
 
-const puppeteer = require('puppeteer');
+const isVercel = process.env.VERCEL === '1';
+let puppeteer;
+let chromium;
+
+if (isVercel) {
+    puppeteer = require('puppeteer-core');
+    chromium = require('@sparticuz/chromium-min');
+} else {
+    puppeteer = require('puppeteer');
+}
 
 // Generate HTML template for PDF
 function generatePDFHTML(mcqs, title, includeExplanation) {
@@ -171,20 +180,30 @@ async function generatePDF(mcqs, title = 'MCQ Assessment', includeExplanation = 
     let browser;
 
     try {
-        // Launch browser
-        browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--single-process',
-                '--disable-gpu'
-            ]
-        });
+        // Launch browser based on environment
+        if (isVercel) {
+            browser = await puppeteer.launch({
+                args: chromium.args,
+                defaultViewport: chromium.defaultViewport,
+                executablePath: await chromium.executablePath(),
+                headless: chromium.headless,
+                ignoreHTTPSErrors: true,
+            });
+        } else {
+            browser = await puppeteer.launch({
+                headless: 'new',
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process',
+                    '--disable-gpu'
+                ]
+            });
+        }
 
         const page = await browser.newPage();
 
